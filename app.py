@@ -16,7 +16,7 @@ import requests
 from urllib.parse import urljoin, urlparse
 
 # --- Configuration & UI ---
-TARGET_URL = "https://rpachallenge.com/"
+TARGET_URL = "https://generativeaimasters.in/"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 VECTORSTORE_PATH = "data/faiss_index"  # Path to save vectorstore
 
@@ -101,7 +101,7 @@ def extract_links_from_html(html_content):
             full_url = urljoin(TARGET_URL, href)
             # Only keep links from same domain
             parsed = urlparse(full_url)
-            if 'rpachallenge.com' in parsed.netloc:
+            if 'generativeaimasters.in' in parsed.netloc:
                 links.add(full_url.rstrip('/'))
     
     return links
