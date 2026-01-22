@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
 
-from pinecone import Pinecone, list_indexes, create_index
+from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 
 # ------------------------------------------------------------------
@@ -53,7 +53,11 @@ if PINECONE_INDEX not in pc.list_indexes():
     pc.create_index(
         name=PINECONE_INDEX,
         dimension=1025,  # Match your existing index dimension
-        metric="cosine"
+        metric="cosine",
+        spec=ServerlessSpec(
+            cloud="aws",
+            region="us-east-1"
+        )
     )
 
 pinecone_index = pc.Index(PINECONE_INDEX)
