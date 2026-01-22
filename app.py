@@ -172,33 +172,45 @@ with st.sidebar:
 
 # --- RAG Indexing ---
 if process_btn:
-    with st.spinner("🔄 Processing entire website (this may take a minute)..."):
+    with st.spinner("🔄 Processing entire website (this may take a few minutes)..."):
         try:
+            st.info("📥 Loading pages from website...")
+            
+            # Use RecursiveUrlLoader with better settings
             loader = RecursiveUrlLoader(
                 url=TARGET_URL,
-                max_depth=5,
-                extractor=lambda x: BeautifulSoup(x, "html.parser").get_text()
+                max_depth=3,  # Reduced depth to be more efficient
+                prevent_outside=True,  # Stay within domain
+                extractor=lambda x: BeautifulSoup(x, "html.parser").get_text(),
+                continue_on_failure=True  # Continue even if some pages fail
             )
             docs = loader.load()
-            st.info(f"📄 Loaded {len(docs)} pages from the website")
             
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1500,
-                chunk_overlap=300,
-                separators=["\n\n", "\n", " ", ""]
-            )
-            chunks = text_splitter.split_documents(docs)
-            st.info(f"✂️ Created {len(chunks)} text chunks")
-            
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
-            vectorstore = FAISS.from_documents(chunks, embeddings)
-            
-            # Save vectorstore to disk
-            if save_vectorstore(vectorstore):
-                st.info("💾 Vectorstore saved to disk")
-            
-            st.session_state.retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-            st.success("✅ Website indexed and saved successfully!")
+            if not docs:
+                st.error("❌ No pages loaded from website. Please check the URL and try again.")
+            else:
+                st.success(f"✅ Loaded {len(docs)} pages from the website")
+                
+                st.info("✂️ Splitting documents into chunks...")
+                text_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=1500,
+                    chunk_overlap=300,
+                    separators=["\n\n", "\n", " ", ""]
+                )
+                chunks = text_splitter.split_documents(docs)
+                st.success(f"✅ Created {len(chunks)} text chunks")
+                
+                st.info("🧠 Creating embeddings and building index...")
+                embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
+                vectorstore = FAISS.from_documents(chunks, embeddings)
+                st.success("✅ Index created successfully")
+                
+                # Save vectorstore to disk
+                if save_vectorstore(vectorstore):
+                    st.success("💾 Vectorstore saved to disk")
+                
+                st.session_state.retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+                st.success("✅ Website indexed and ready to use!")
         except Exception as e:
             st.error(f"Error indexing website: {e}")
 
@@ -270,13 +282,25 @@ if st.session_state.retriever is not None:
     ])
     
     retriever = st.session_state.retriever
-    team_chat_history = st.session_state.chat_history[st.session_state.current_team]
+    
+    # Create dynamic RAG chain that gets current team chat history at invocation time
+    def get_context(input_dict):
+        return format_docs(retriever.invoke(input_dict["input"]))
+    
+    def get_chat_history(input_dict):
+        current_team = st.session_state.current_team
+        if current_team not in st.session_state.chat_history:
+            return []
+        return st.session_state.chat_history[current_team]
+    
+    def get_input(input_dict):
+        return input_dict["input"]
     
     rag_chain = (
         {
-            "context": lambda x: format_docs(retriever.invoke(x["input"])),
-            "chat_history": lambda x: team_chat_history,
-            "input": lambda x: x["input"],
+            "context": RunnableLambda(get_context),
+            "chat_history": RunnableLambda(get_chat_history),
+            "input": RunnableLambda(get_input),
         }
         | qa_prompt
         | llm
@@ -309,7 +333,7 @@ if st.session_state.retriever is not None:
         # Get AI response
         with st.chat_message("assistant", avatar="🤖"):
             with st.spinner("⏳ Thinking..."):
-                response = rag_chain.invoke({"input": prompt, "chat_history": team_chat_history})
+                response = rag_chain.invoke({"input": prompt})
             st.markdown(response)
         
         # Update current team's history
