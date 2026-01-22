@@ -9,10 +9,12 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage
 from bs4 import BeautifulSoup
+import os
 
 # --- Configuration & UI ---
 TARGET_URL = "https://resolvetech.com/"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
+VECTORSTORE_PATH = "data/faiss_index"  # Path to save vectorstore
 
 st.set_page_config(page_title="Resolve Tech AI", page_icon="💻", layout="wide")
 
@@ -52,11 +54,34 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- Helper Functions for Vectorstore Persistence ---
+def save_vectorstore(vectorstore, path=VECTORSTORE_PATH):
+    """Save FAISS vectorstore to disk"""
+    try:
+        os.makedirs(path, exist_ok=True)
+        vectorstore.save_local(path)
+        return True
+    except Exception as e:
+        st.error(f"Error saving vectorstore: {e}")
+        return False
+
+def load_vectorstore(path=VECTORSTORE_PATH):
+    """Load FAISS vectorstore from disk"""
+    try:
+        if os.path.exists(path):
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
+            vectorstore = FAISS.load_local(path, embeddings, allow_dangerous_deserialization=True)
+            return vectorstore.as_retriever(search_kwargs={"k": 5})
+    except Exception as e:
+        st.warning(f"Could not load saved vectorstore: {e}")
+    return None
+
 # --- Initialize Session State ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "retriever" not in st.session_state:
-    st.session_state.retriever = None
+    # Try to load saved vectorstore first
+    st.session_state.retriever = load_vectorstore()
 
 # --- Sidebar Controls ---
 with st.sidebar:
@@ -109,9 +134,13 @@ if process_btn:
             
             embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
             vectorstore = FAISS.from_documents(chunks, embeddings)
+            
+            # Save vectorstore to disk
+            if save_vectorstore(vectorstore):
+                st.info("💾 Vectorstore saved to disk")
+            
             st.session_state.retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-            st.session_state.indexing_done = True
-            st.success("✅ Website indexed successfully!")
+            st.success("✅ Website indexed and saved successfully!")
         except Exception as e:
             st.error(f"Error indexing website: {e}")
 
