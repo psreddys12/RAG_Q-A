@@ -16,11 +16,17 @@ import requests
 from urllib.parse import urljoin, urlparse
 
 # --- Configuration & UI ---
-TARGET_URL = "https://allprotrainings.com"
+TARGET_URL = "https://rpachallenge.com/"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
-VECTORSTORE_PATH = "data/faiss_index"  # Path to save vectorstore
 
-st.set_page_config(page_title="AllPro Trainings AI", page_icon="💻", layout="wide")
+# Get absolute path for vectorstore
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VECTORSTORE_PATH = os.path.join(BASE_DIR, "data", "faiss_index")
+
+# Ensure data directory exists
+os.makedirs(VECTORSTORE_PATH, exist_ok=True)
+
+st.set_page_config(page_title="rpachallenges AI", page_icon="💻", layout="wide")
 
 # --- Custom CSS for ChatGPT-like interface ---
 st.markdown("""
@@ -62,17 +68,37 @@ st.markdown("""
 def save_vectorstore(vectorstore, path=VECTORSTORE_PATH):
     """Save FAISS vectorstore to disk"""
     try:
+        # Ensure directory exists
         os.makedirs(path, exist_ok=True)
-        vectorstore.save_local(path)
-        st.success(f"✅ Vectorstore saved to {path}")
+        st.info(f"📁 Saving to: {path}")
         
-        # Verify files
+        # Save the vectorstore
+        vectorstore.save_local(path)
+        
+        # Verify files were created
         if os.path.exists(path):
             files = os.listdir(path)
-            st.info(f"📁 Files created: {', '.join(files)}")
-        return True
+            if files:
+                st.success(f"✅ Vectorstore saved successfully!")
+                st.info(f"📁 Files created: {', '.join(files)}")
+                st.info(f"📂 Location: {os.path.abspath(path)}")
+                
+                # Show file sizes
+                for file in files:
+                    file_path = os.path.join(path, file)
+                    size = os.path.getsize(file_path)
+                    st.caption(f"  - {file}: {size:,} bytes")
+                return True
+            else:
+                st.error(f"❌ Directory created but no files found!")
+                return False
+        else:
+            st.error(f"❌ Directory was not created at {path}")
+            return False
     except Exception as e:
-        st.error(f"Error saving vectorstore: {e}")
+        st.error(f"❌ Error saving vectorstore: {e}")
+        import traceback
+        st.error(traceback.format_exc())
         return False
 
 def load_vectorstore(path=VECTORSTORE_PATH):
@@ -211,6 +237,24 @@ with st.sidebar:
                         st.write(doc.page_content[:200] + "...")
             except Exception as e:
                 st.error(f"Search test failed: {e}")
+        
+        # Check if files exist
+        if st.button("📂 Check Index Files", use_container_width=True, key="check_files_btn"):
+            st.info(f"**Looking for index at:** `{VECTORSTORE_PATH}`")
+            if os.path.exists(VECTORSTORE_PATH):
+                files = os.listdir(VECTORSTORE_PATH)
+                if files:
+                    st.success(f"✅ Found {len(files)} files:")
+                    for file in files:
+                        file_path = os.path.join(VECTORSTORE_PATH, file)
+                        size = os.path.getsize(file_path)
+                        st.write(f"  - **{file}**: {size:,} bytes")
+                    st.info(f"📍 Full path: `{os.path.abspath(VECTORSTORE_PATH)}`")
+                else:
+                    st.warning("⚠️ Directory exists but is empty!")
+            else:
+                st.error(f"❌ Directory does not exist: {VECTORSTORE_PATH}")
+                st.info("Run indexing to create it.")
 
 # --- Test Crawler (Debug) ---
 if st.session_state.test_crawler:
@@ -412,8 +456,8 @@ git push
 # --- Main Chat Interface ---
 st.markdown("""
 <div style="text-align: center; padding: 20px 0;">
-    <h1 style="margin: 0; font-size: 2.5em;">💻 AllPro Trainings AI</h1>
-    <p style="margin: 10px 0; color: #666; font-size: 1.1em;">Ask anything about AllPro Trainings</p>
+    <h1 style="margin: 0; font-size: 2.5em;">💻 Rpachallenge AI</h1>
+    <p style="margin: 10px 0; color: #666; font-size: 1.1em;">Ask anything about Rpachallenge</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -431,7 +475,7 @@ if st.session_state.retriever is not None:
         st.markdown("""
         <div style="text-align: center; color: #999; padding: 60px 20px;">
             <p style="font-size: 1.2em; margin-bottom: 20px;">👋 Start a conversation</p>
-            <p style="font-size: 0.9em;">Ask about training courses, certifications, or anything else about AllPro Trainings</p>
+            <p style="font-size: 0.9em;">Ask about training courses, certifications, or anything else about Rpachallenge</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -441,7 +485,7 @@ if st.session_state.retriever is not None:
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=API_KEY)
 
     qa_system_prompt = (
-        "You are a helpful assistant for AllPro Trainings. Use the following context to answer questions. "
+        "You are a helpful assistant for Rpachallenge. Use the following context to answer questions. "
         "If you don't know the answer, say you don't know. Keep responses professional and informative.\n\n"
         "Context: {context}"
     )
@@ -518,7 +562,7 @@ else:
         <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <p style="margin: 10px 0;"><strong>How it works:</strong></p>
             <ul style="text-align: left; display: inline-block;">
-                <li>📄 Crawls the entire AllPro Trainings website</li>
+                <li>📄 Crawls the entire Rpachallenge website</li>
                 <li>🧠 Indexes all content for instant retrieval</li>
                 <li>💬 Answers your questions based on website data</li>
                 <li>💾 Saves index for future use</li>
