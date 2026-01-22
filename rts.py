@@ -57,7 +57,7 @@ pinecone_index = pc.Index(PINECONE_INDEX)
 vectorstore = PineconeVectorStore(
     index=pinecone_index,
     embedding=embeddings,
-    text_key="text"
+    text_key="page_content"
 )
 
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
@@ -102,8 +102,13 @@ def crawl_website():
             if r.status_code != 200:
                 continue
 
-            soup = BeautifulSoup(r.text, "html.parser")
-            text = clean_text(soup.get_text())
+soup = BeautifulSoup(r.text, "html.parser")
+
+for tag in soup(["script", "style", "nav", "footer", "header"]):
+    tag.decompose()
+
+text = clean_text(soup.get_text(separator=" "))
+
 
             if len(text) > 200:
                 documents.append(
