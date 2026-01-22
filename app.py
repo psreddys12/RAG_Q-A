@@ -3,9 +3,9 @@ from langchain_community.document_loaders import WebBaseLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain.chains import create_retrieval_chain, create_history_aware_retriever
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage
 
 # --- Configuration & UI (Same as before) ---
@@ -56,7 +56,13 @@ if "retriever" in st.session_state:
         MessagesPlaceholder("chat_history"),
         ("human", "{input}"),
     ])
-    history_aware_retriever = create_history_aware_retriever(llm, st.session_state.retriever, contextualize_q_prompt)
+    
+    # Create a chain that rephrases questions using chat history
+    contextualize_q_chain = contextualize_q_prompt | llm | StrOutputParser()
+    
+    # Function to handle chat history
+    def get_context_from_docs(docs):
+        return "\n\n".join([doc.page_content for doc in docs])
 
     # 3. Answer Question
     qa_system_prompt = (
@@ -69,8 +75,17 @@ if "retriever" in st.session_state:
         ("human", "{input}"),
     ])
     
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    # Build the RAG chain using pipe operator
+    rag_chain = (
+        {
+            "context": st.session_state.retriever | RunnableLambda(get_context_from_docs),
+            "chat_history": RunnableLambda(lambda x: st.session_state.chat_history),
+            "input": RunnablePassthrough(),
+        }
+        | qa_prompt
+        | llm
+        | StrOutputParser()
+    )
 
     # --- Chat Display ---
     for message in st.session_state.chat_history:
@@ -84,10 +99,10 @@ if "retriever" in st.session_state:
 
         with st.chat_message("assistant"):
             response = rag_chain.invoke({"input": prompt, "chat_history": st.session_state.chat_history})
-            st.markdown(response["answer"])
+            st.markdown(response)
             
         # Update history
         st.session_state.chat_history.extend([
             HumanMessage(content=prompt),
-            AIMessage(content=response["answer"]),
+            AIMessage(content=response),
         ])
