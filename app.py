@@ -53,8 +53,7 @@ if PINECONE_INDEX not in pc.list_indexes():
     pc.create_index(
         name=PINECONE_INDEX,
         dimension=1025,  # Match your existing index dimension
-        metric="cosine",
-        cloud="aws"
+        metric="cosine"
     )
 
 pinecone_index = pc.Index(PINECONE_INDEX)
