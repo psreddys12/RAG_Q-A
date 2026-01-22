@@ -78,67 +78,20 @@ def load_vectorstore(path=VECTORSTORE_PATH):
 
 # --- Initialize Session State ---
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = {}
-if "current_team" not in st.session_state:
-    st.session_state.current_team = "Resolve Tech AI"
+    st.session_state.chat_history = []
 if "retriever" not in st.session_state:
     # Try to load saved vectorstore first
     st.session_state.retriever = load_vectorstore()
 
-# Define available teams
-TEAMS = {
-    "Resolve Tech AI": {"icon": "💻", "color": "#0066cc"},
-    "Network Team": {"icon": "🌐", "color": "#FF6B6B"},
-    "HR Team": {"icon": "👥", "color": "#4ECDC4"},
-    "Servicenow Team": {"icon": "🔧", "color": "#FFE66D"},
-    "Finance Team": {"icon": "💰", "color": "#95E1D3"},
-}
-
 # --- Sidebar Navigation ---
 with st.sidebar:
-    st.markdown("""
-    <style>
-        .team-button {
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 8px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        .team-button-active {
-            border: 2px solid #0066cc;
-            background-color: #f0f7ff;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("## 💬 Teams")
+    st.markdown("## 💬 Chat")
     st.divider()
     
     # New Chat button
     if st.button("➕ New Chat", use_container_width=True, key="new_chat_btn"):
-        st.session_state.current_team = "Resolve Tech AI"
-        st.session_state.chat_history[st.session_state.current_team] = []
+        st.session_state.chat_history = []
         st.rerun()
-    
-    st.divider()
-    
-    # Team selection buttons
-    for team_name, team_info in TEAMS.items():
-        col1, col2 = st.columns([1, 4])
-        
-        with col1:
-            st.markdown(f"<span style='font-size: 1.5em;'>{team_info['icon']}</span>", unsafe_allow_html=True)
-        
-        with col2:
-            if st.button(team_name, use_container_width=True, key=f"team_{team_name}"):
-                st.session_state.current_team = team_name
-                # Initialize team chat history if not exists
-                if team_name not in st.session_state.chat_history:
-                    st.session_state.chat_history[team_name] = []
-                st.rerun()
     
     st.divider()
     st.markdown("## ⚙️ Settings")
@@ -154,10 +107,9 @@ with st.sidebar:
             st.session_state.retriever = None
             st.rerun()
     
-    # Clear current team chat
-    if st.button("🗑️ Clear Current Chat", use_container_width=True, key="clear_btn"):
-        if st.session_state.current_team in st.session_state.chat_history:
-            st.session_state.chat_history[st.session_state.current_team] = []
+    # Clear chat
+    if st.button("🗑️ Clear Chat", use_container_width=True, key="clear_btn"):
+        st.session_state.chat_history = []
         st.rerun()
     
     st.divider()
@@ -176,13 +128,14 @@ if process_btn:
         try:
             st.info("📥 Loading pages from website...")
             
-            # Use RecursiveUrlLoader with better settings
+            # Use RecursiveUrlLoader with aggressive crawling
             loader = RecursiveUrlLoader(
                 url=TARGET_URL,
-                max_depth=3,  # Reduced depth to be more efficient
+                max_depth=10,  # Crawl deeper to get all pages
                 prevent_outside=True,  # Stay within domain
                 extractor=lambda x: BeautifulSoup(x, "html.parser").get_text(),
-                continue_on_failure=True  # Continue even if some pages fail
+                continue_on_failure=True,  # Continue even if some pages fail
+                timeout=30  # Allow more time per page
             )
             docs = loader.load()
             
@@ -190,6 +143,7 @@ if process_btn:
                 st.error("❌ No pages loaded from website. Please check the URL and try again.")
             else:
                 st.success(f"✅ Loaded {len(docs)} pages from the website")
+                st.info(f"📄 Total content size: {sum(len(d.page_content) for d in docs):,} characters")
                 
                 st.info("✂️ Splitting documents into chunks...")
                 text_splitter = RecursiveCharacterTextSplitter(
@@ -215,12 +169,9 @@ if process_btn:
             st.error(f"Error indexing website: {e}")
 
 # --- Main Chat Interface ---
-current_team = st.session_state.current_team
-team_icon = TEAMS[current_team]["icon"]
-
-st.markdown(f"""
+st.markdown("""
 <div style="text-align: center; padding: 20px 0;">
-    <h1 style="margin: 0; font-size: 2.5em;">{team_icon} {current_team}</h1>
+    <h1 style="margin: 0; font-size: 2.5em;">💻 Resolve Tech AI</h1>
     <p style="margin: 10px 0; color: #666; font-size: 1.1em;">Ask anything about Resolve Tech Solutions</p>
 </div>
 """, unsafe_allow_html=True)
@@ -229,15 +180,8 @@ if st.session_state.retriever is not None:
     # --- Chat Messages Display ---
     st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     
-    # Get current team's chat history
-    current_team = st.session_state.current_team
-    if current_team not in st.session_state.chat_history:
-        st.session_state.chat_history[current_team] = []
-    
-    team_chat_history = st.session_state.chat_history[current_team]
-    
-    if team_chat_history:
-        for message in team_chat_history:
+    if st.session_state.chat_history:
+        for message in st.session_state.chat_history:
             role = "user" if isinstance(message, HumanMessage) else "assistant"
             with st.chat_message(role, avatar="👤" if role == "user" else "🤖"):
                 st.markdown(message.content)
@@ -282,12 +226,7 @@ if st.session_state.retriever is not None:
     ])
     
     retriever = st.session_state.retriever
-    current_team = st.session_state.current_team
-    
-    # Get current team's chat history at chain creation time
-    if current_team not in st.session_state.chat_history:
-        st.session_state.chat_history[current_team] = []
-    team_chat_history = st.session_state.chat_history[current_team]
+    chat_history = st.session_state.chat_history
     
     # Create dynamic RAG chain
     def get_context(input_dict):
@@ -299,7 +238,7 @@ if st.session_state.retriever is not None:
     rag_chain = (
         {
             "context": RunnableLambda(get_context),
-            "chat_history": lambda x: team_chat_history,
+            "chat_history": lambda x: chat_history,
             "input": RunnableLambda(get_input),
         }
         | qa_prompt
@@ -336,9 +275,8 @@ if st.session_state.retriever is not None:
                 response = rag_chain.invoke({"input": prompt})
             st.markdown(response)
         
-        # Update current team's history
-        current_team = st.session_state.current_team
-        st.session_state.chat_history[current_team].extend([
+        # Update history
+        st.session_state.chat_history.extend([
             HumanMessage(content=prompt),
             AIMessage(content=response),
         ])
