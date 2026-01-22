@@ -133,24 +133,30 @@ if "chat_history" not in st.session_state:
 with st.sidebar:
     st.header("Controls")
 
+
     if st.button("Index Website (One Time)"):
         with st.spinner("Crawling and indexing website..."):
-            docs = crawl_website()
+            try:
+                docs = crawl_website()
+                st.write(f"Crawled {len(docs)} documents.")
 
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1500,
-                chunk_overlap=300
-            )
+                splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=1500,
+                    chunk_overlap=300
+                )
 
-            chunks = splitter.split_documents(docs)
+                chunks = splitter.split_documents(docs)
+                st.write(f"Split into {len(chunks)} chunks.")
 
-            PineconeVectorStore.from_documents(
-                documents=chunks,
-                embedding=embeddings,
-                index_name=PINECONE_INDEX
-            )
+                PineconeVectorStore.from_documents(
+                    documents=chunks,
+                    embedding=embeddings,
+                    index_name=PINECONE_INDEX
+                )
 
-            st.success(f"Indexed {len(chunks)} chunks into Pinecone")
+                st.success(f"Indexed {len(chunks)} chunks into Pinecone")
+            except Exception as e:
+                st.error(f"Indexing failed: {e}")
 
     if st.button("Clear Chat"):
         st.session_state.chat_history = []
