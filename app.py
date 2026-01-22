@@ -12,156 +12,123 @@ import os
 import shutil
 import requests
 from urllib.parse import urljoin, urlparse
-import time
 
-# --- Configuration ---
+# --- Config ---
 TARGET_URL = "https://resolvetech.com/"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
-VECTORSTORE_PATH = "data/faiss_index"
+DB_PATH = "data/faiss_index"
 
-st.set_page_config(page_title="Resolve Tech AI", page_icon="💻", layout="wide")
+st.set_page_config(page_title="Resolve Tech AI", layout="wide")
 
-# --- Logic: Deep Crawler ---
-def get_all_website_pages(base_url):
-    """Exhaustively finds all internal links on the website."""
+# --- Deep Crawler Logic ---
+def crawl_entire_site(url):
+    domain = urlparse(url).netloc
     visited = set()
-    queue = [base_url.rstrip('/')]
-    domain = urlparse(base_url).netloc
-
-    while queue:
-        url = queue.pop(0)
-        if url in visited:
+    to_visit = [url.rstrip('/')]
+    documents = []
+    
+    progress_text = st.empty()
+    
+    while to_visit:
+        current_url = to_visit.pop(0)
+        if current_url in visited:
             continue
         
         try:
-            # Respectful delay and User-Agent
-            res = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebkit/537.36'})
+            res = requests.get(current_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
             if res.status_code == 200:
-                visited.add(url)
+                visited.add(current_url)
                 soup = BeautifulSoup(res.text, 'html.parser')
                 
+                # Extract Text
+                for s in soup(['script', 'style', 'nav', 'footer', 'header']):
+                    s.decompose()
+                
+                clean_text = " ".join(soup.get_text(separator=" ").split())
+                if len(clean_text) > 200:
+                    documents.append(Document(page_content=clean_text, metadata={"source": current_url}))
+                
+                # Find More Links
                 for a in soup.find_all('a', href=True):
-                    link = urljoin(url, a['href']).split('#')[0].rstrip('/')
-                    if urlparse(link).netloc == domain and link not in visited and link not in queue:
-                        # Filter out non-html files
-                        if not any(link.endswith(ext) for ext in ['.pdf', '.jpg', '.png', '.zip']):
-                            queue.append(link)
-        except Exception:
-            continue
-            
-    return list(visited)
-
-def process_and_index(urls):
-    """Scrapes content, splits into chunks, and saves FAISS index."""
-    all_docs = []
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    for i, url in enumerate(urls):
-        status_text.text(f"Scraping ({i+1}/{len(urls)}): {url}")
-        try:
-            res = requests.get(url, timeout=10)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            
-            # Clean HTML: remove nav, footer, scripts
-            for extra in soup(['nav', 'footer', 'script', 'style', 'header']):
-                extra.decompose()
-            
-            text = soup.get_text(separator=' ')
-            clean_content = ' '.join(text.split())
-            
-            if len(clean_content) > 100:
-                all_docs.append(Document(page_content=clean_content, metadata={"source": url}))
+                    full_link = urljoin(current_url, a['href']).split('#')[0].rstrip('/')
+                    if urlparse(full_link).netloc == domain and full_link not in visited:
+                        to_visit.append(full_link)
+                
+                progress_text.text(f"Analyzed: {len(visited)} pages... Found: {current_url}")
         except:
             continue
-        progress_bar.progress((i + 1) / len(urls))
+    return documents
 
-    # Split
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=200)
-    splits = text_splitter.split_documents(all_docs)
-
-    # Embed & Save
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
-    vectorstore = FAISS.from_documents(splits, embeddings)
-    vectorstore.save_local(VECTORSTORE_PATH)
-    return vectorstore
-
-# --- Initialize State ---
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-# --- Sidebar UI ---
+# --- Sidebar Management ---
 with st.sidebar:
-    st.header("Resolve Tech Admin")
-    
-    index_exists = os.path.exists(VECTORSTORE_PATH)
-    
-    if not index_exists:
-        st.warning("No index found. Please crawl the website.")
-        if st.button("🔍 Index Entire Website Now", use_container_width=True):
-            with st.spinner("Discovering all pages... (This may take a minute)"):
-                urls = get_all_website_pages(TARGET_URL)
-                st.info(f"Found {len(urls)} pages. Starting deep crawl...")
-                process_and_index(urls)
-                st.success("Indexing Complete!")
-                st.rerun()
-    else:
-        st.success("Website Indexed & Ready")
-        if st.button("♻️ Re-crawl Website"):
-            shutil.rmtree(VECTORSTORE_PATH)
+    st.title("Resolve Tech Admin")
+    if os.path.exists(DB_PATH):
+        st.success("✅ Website Index Loaded")
+        if st.button("Delete & Re-index"):
+            shutil.rmtree("data")
             st.rerun()
+    else:
+        if st.button("🚀 Start Full Website Indexing"):
+            with st.spinner("Crawling all pages..."):
+                docs = crawl_entire_site(TARGET_URL)
+                splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                final_docs = splitter.split_documents(docs)
+                
+                embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
+                vectorstore = FAISS.from_documents(final_docs, embeddings)
+                vectorstore.save_local(DB_PATH)
+                st.success(f"Done! Indexed {len(docs)} pages.")
+                st.rerun()
 
-# --- Main App Logic ---
-st.title("💻 Resolve Tech AI Support")
+# --- Chat Interface ---
+st.title("💻 Resolve Tech AI")
 
-if not os.path.exists(VECTORSTORE_PATH):
-    st.info("👈 Please click the button in the sidebar to index the website content before chatting.")
+if not os.path.exists(DB_PATH):
+    st.info("Please run the Indexing from the sidebar to start.")
 else:
-    # Load Index
+    # Load Retriever
     embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
-    vectorstore = FAISS.load_local(VECTORSTORE_PATH, embeddings, allow_dangerous_deserialization=True)
+    vectorstore = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-
-    # Chat Setup
+    
+    # Setup LLM & Chains
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=API_KEY)
 
-    # 1. Contextualize Question
-    context_q_system = "Given chat history and latest user question, make it a standalone question."
-    context_q_prompt = ChatPromptTemplate.from_messages([
-        ("system", context_q_system),
+    # Prompt for re-writing the question based on history
+    context_prompt = ChatPromptTemplate.from_messages([
+        ("system", "Given the history and latest question, make it a standalone question."),
         MessagesPlaceholder("chat_history"),
         ("human", "{input}"),
     ])
-    history_aware_retriever = create_history_aware_retriever(llm, retriever, context_q_prompt)
+    history_aware_retriever = create_history_aware_retriever(llm, retriever, context_prompt)
 
-    # 2. Answer Chain
-    qa_system = "You are a Resolve Tech expert. Use the context to answer. If unsure, say 'I don't know'.\n\nContext: {context}"
+    # Final Answer Prompt
     qa_prompt = ChatPromptTemplate.from_messages([
-        ("system", qa_system),
+        ("system", "You are an expert for Resolve Tech. Use context to answer. Context: {context}"),
         MessagesPlaceholder("chat_history"),
         ("human", "{input}"),
     ])
     
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    qa_chain = create_stuff_documents_chain(llm, qa_prompt)
+    rag_chain = create_retrieval_chain(history_aware_retriever, qa_chain)
 
-    # UI Chat Display
-    for msg in st.session_state.chat_history:
-        role = "user" if isinstance(msg, HumanMessage) else "assistant"
-        with st.chat_message(role):
-            st.markdown(msg.content)
+    # Chat Session
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    if user_input := st.chat_input("How can I help you today?"):
-        st.session_state.chat_history.append(HumanMessage(content=user_input))
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
+
+    if prompt := st.chat_input("Ask me anything about Resolve Tech"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
-            st.markdown(user_input)
-
+            st.markdown(prompt)
+            
+        # Generate Answer
+        history = [HumanMessage(m["content"]) if m["role"] == "user" else AIMessage(m["content"]) for m in st.session_state.messages[:-1]]
+        
         with st.chat_message("assistant"):
-            with st.spinner("Analyzing website data..."):
-                response = rag_chain.invoke({
-                    "input": user_input,
-                    "chat_history": st.session_state.chat_history
-                })
-                answer = response["answer"]
-                st.markdown(answer)
-                st.session_state.chat_history.append(AIMessage(content=answer))
+            response = rag_chain.invoke({"input": prompt, "chat_history": history})
+            st.markdown(response["answer"])
+            st.session_state.messages.append({"role": "assistant", "content": response["answer"]})
