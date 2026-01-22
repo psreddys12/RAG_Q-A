@@ -79,6 +79,9 @@ if "retriever" in st.session_state:
     # Function to handle chat history
     def get_context_from_docs(docs):
         return "\n\n".join([doc.page_content for doc in docs])
+    
+    def format_docs(docs):
+        return "\n\n".join([d.page_content for d in docs])
 
     # 3. Answer Question
     qa_system_prompt = (
@@ -91,12 +94,12 @@ if "retriever" in st.session_state:
         ("human", "{input}"),
     ])
     
-    # Build the RAG chain using pipe operator
+    # Build the RAG chain using pipe operator - properly route context from retriever
     rag_chain = (
         {
-            "context": st.session_state.retriever | RunnableLambda(get_context_from_docs),
-            "chat_history": RunnableLambda(lambda x: st.session_state.chat_history),
-            "input": RunnablePassthrough(),
+            "context": lambda x: format_docs(st.session_state.retriever.invoke(x["input"])),
+            "chat_history": lambda x: st.session_state.chat_history,
+            "input": lambda x: x["input"],
         }
         | qa_prompt
         | llm
