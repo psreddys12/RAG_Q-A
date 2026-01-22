@@ -16,7 +16,7 @@ import requests
 from urllib.parse import urljoin, urlparse
 
 # --- Configuration & UI ---
-TARGET_URL = "https://allprotrainings.com/home/"
+TARGET_URL = "https://allprotrainings.com"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 VECTORSTORE_PATH = "data/faiss_index"  # Path to save vectorstore
 
