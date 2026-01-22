@@ -2,7 +2,7 @@ langchain
 langchain-community
 langchain-google-genai
 langchain-text-splitters
-faiss-cpu
+pinecone>=3.0.0
 beautifulsoup4
 requests
 streamlit
