@@ -39,18 +39,18 @@ embeddings = GoogleGenerativeAIEmbeddings(
     google_api_key=GOOGLE_API_KEY
 )
 
+
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=GOOGLE_API_KEY
 )
 
-pinecone.init(
+# Pinecone v3+ connection
+pinecone_index = pinecone.Index(
+    PINECONE_INDEX,
     api_key=PINECONE_API_KEY,
     environment="us-east-1"  # change if needed
 )
-
-pinecone_index = pinecone.Index(PINECONE_INDEX)
-
 
 vectorstore = PineconeVectorStore(
     index=pinecone_index,
