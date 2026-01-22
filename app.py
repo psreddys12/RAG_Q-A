@@ -245,15 +245,15 @@ def format_docs(docs):
     return "\n\n".join(d.page_content for d in docs)
 
 qa_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are an expert AI assistant for Generative AI Masters.\n\n"
-     "Use the provided context to answer factual and informational questions accurately.\n"
-        prompt = st.chat_input("Type your message and press Enter...")
-     "respond politely and professionally without relying on the context.\n\n"
-     "If the requested factual information is not available in the provided context,\n"
-     "clearly and politely state that you do not currently have that information,\n"
-     "and avoid making assumptions or providing unverified details.\n\n{context}"
-    ),
+     ("system",
+      "You are an expert AI assistant for Generative AI Masters.\n\n"
+      "Use the provided context to answer factual and informational questions accurately.\n"
+      "If the user’s message is conversational (such as greetings, thanks, or general chat),\n"
+      "respond politely and professionally without relying on the context.\n\n"
+      "If the requested factual information is not available in the provided context,\n"
+      "clearly and politely state that you do not currently have that information,\n"
+      "and avoid making assumptions or providing unverified details.\n\n{context}"
+     ),
     MessagesPlaceholder("chat_history"),
     ("human", "{input}")
 ])
@@ -279,10 +279,11 @@ rag_chain = (
     | StrOutputParser()
 )
 
+
 # ------------------------------------------------------------------
 # INPUT
 # ------------------------------------------------------------------
-prompt = st.chat_input("Ask a question about generativemasters...")
+prompt = st.chat_input("Type your message and press Enter...")
 
 if prompt:
     st.session_state.chat_history.append(HumanMessage(content=prompt))
