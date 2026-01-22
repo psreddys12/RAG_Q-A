@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -8,42 +9,57 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage
 
-# --- Configuration & UI (Same as before) ---
+# --- Configuration & UI ---
 TARGET_URL = "https://resolvetech.com/"
-st.set_page_config(page_title="Resolve Tech AI", page_icon="💻")
-st.title("💻 Resolve Tech Smart Assistant")
+API_KEY = os.getenv("GOOGLE_API_KEY")  # Get API key from environment variable
 
-with st.sidebar:
-    api_key = st.text_input("AIzaSyBTqfh8bi0ctEEvtvWk0bdoTy0FVpDKkzI", type="password")
-    process_btn = st.button("Index Website")
-    if st.button("Clear History"):
-        st.session_state.chat_history = []
-        st.rerun()
+st.set_page_config(page_title="Resolve Tech AI", page_icon="💻", layout="wide")
+st.title("💻 Resolve Tech Smart Assistant")
+st.markdown("Ask questions about Resolve Tech Solutions' services")
 
 # --- Initialize Session State for Memory ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- RAG Indexing (Same Logic) ---
-if process_btn and api_key:
-    with st.spinner("Processing..."):
-        loader = WebBaseLoader(TARGET_URL)
-        loader.requests_kwargs = {'headers': {'User-Agent': 'Mozilla/5.0'}}
-        docs = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks = text_splitter.split_documents(docs)
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
-        vectorstore = FAISS.from_documents(chunks, embeddings)
-        st.session_state.retriever = vectorstore.as_retriever()
-        st.success("Website Indexed!")
+# --- Sidebar Controls ---
+with st.sidebar:
+    st.header("⚙️ Settings")
+    process_btn = st.button("🔄 Index Website", use_container_width=True)
+    if st.button("🗑️ Clear Chat History", use_container_width=True):
+        st.session_state.chat_history = []
+        st.rerun()
+    
+    # Status indicator
+    if "retriever" in st.session_state:
+        st.success("✅ Website Indexed")
+    else:
+        st.info("ℹ️ Click 'Index Website' to start")
+
+# --- RAG Indexing ---
+if process_btn:
+    if not API_KEY:
+        st.error("❌ API Key not found. Set GOOGLE_API_KEY environment variable.")
+    else:
+        with st.spinner("🔄 Processing website..."):
+            try:
+                loader = WebBaseLoader(TARGET_URL)
+                loader.requests_kwargs = {'headers': {'User-Agent': 'Mozilla/5.0'}}
+                docs = loader.load()
+                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                chunks = text_splitter.split_documents(docs)
+                embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
+                vectorstore = FAISS.from_documents(chunks, embeddings)
+                st.session_state.retriever = vectorstore.as_retriever()
+                st.success("✅ Website indexed successfully!")
+            except Exception as e:
+                st.error(f"Error indexing website: {e}")
 
 # --- The Conversational RAG Chain ---
 if "retriever" in st.session_state:
     # 1. Setup LLM
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=api_key)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=API_KEY)
 
     # 2. Contextualize Question (The "Memory" part)
-    # This rephrases the user's question to be standalone
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
@@ -87,18 +103,32 @@ if "retriever" in st.session_state:
         | StrOutputParser()
     )
 
-    # --- Chat Display ---
-    for message in st.session_state.chat_history:
-        role = "user" if isinstance(message, HumanMessage) else "assistant"
-        with st.chat_message(role):
-            st.markdown(message.content)
+    # --- Chat History Display ---
+    if st.session_state.chat_history:
+        st.markdown("---")
+        st.subheader("💬 Conversation History")
+        for message in st.session_state.chat_history:
+            role = "user" if isinstance(message, HumanMessage) else "assistant"
+            with st.chat_message(role):
+                st.markdown(message.content)
 
-    if prompt := st.chat_input("Ask about their Cloud or SAP services..."):
+    # --- Search Box on Main Page ---
+    st.markdown("---")
+    st.subheader("🔍 Ask a Question")
+    
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        prompt = st.text_input("Search...", placeholder="Ask about Cloud or SAP services...", key="search_input")
+    with col2:
+        search_btn = st.button("Search", use_container_width=True)
+    
+    if search_btn and prompt:
         with st.chat_message("user"):
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            response = rag_chain.invoke({"input": prompt, "chat_history": st.session_state.chat_history})
+            with st.spinner("⏳ Thinking..."):
+                response = rag_chain.invoke({"input": prompt, "chat_history": st.session_state.chat_history})
             st.markdown(response)
             
         # Update history
@@ -106,3 +136,8 @@ if "retriever" in st.session_state:
             HumanMessage(content=prompt),
             AIMessage(content=response),
         ])
+        st.rerun()
+
+else:
+    st.info("👈 Click **Index Website** in the sidebar to get started!")
+
