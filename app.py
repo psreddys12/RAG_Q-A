@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
 
-from pinecone import Pinecone
+import pinecone
 from langchain_pinecone import PineconeVectorStore
 
 # ------------------------------------------------------------------
@@ -44,8 +44,13 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=GOOGLE_API_KEY
 )
 
-pc = Pinecone(api_key=PINECONE_API_KEY)
-pinecone_index = pc.Index(PINECONE_INDEX)
+pinecone.init(
+    api_key=PINECONE_API_KEY,
+    environment="us-east-1"  # change if needed
+)
+
+pinecone_index = pinecone.Index(PINECONE_INDEX)
+
 
 vectorstore = PineconeVectorStore(
     index=pinecone_index,
