@@ -1,5 +1,6 @@
 import streamlit as st
 from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
@@ -7,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage
+from bs4 import BeautifulSoup
 
 # --- Configuration & UI ---
 TARGET_URL = "https://resolvetech.com/"
@@ -36,16 +38,30 @@ with st.sidebar:
 
 # --- RAG Indexing ---
 if process_btn:
-    with st.spinner("🔄 Processing website..."):
+    with st.spinner("🔄 Processing entire website (this may take a minute)..."):
         try:
-            loader = WebBaseLoader(TARGET_URL)
-            loader.requests_kwargs = {'headers': {'User-Agent': 'Mozilla/5.0'}}
+            # Use RecursiveUrlLoader to crawl the entire website
+            loader = RecursiveUrlLoader(
+                url=TARGET_URL,
+                max_depth=5,  # Follow links up to 5 levels deep
+                extractor=lambda x: BeautifulSoup(x, "html.parser").get_text()
+            )
             docs = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            st.info(f"📄 Loaded {len(docs)} pages from the website")
+            
+            # Split documents into chunks
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1500,  # Increased chunk size for better context
+                chunk_overlap=300,  # Increased overlap for continuity
+                separators=["\n\n", "\n", " ", ""]
+            )
             chunks = text_splitter.split_documents(docs)
+            st.info(f"✂️ Created {len(chunks)} text chunks")
+            
+            # Create embeddings and vector store
             embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
             vectorstore = FAISS.from_documents(chunks, embeddings)
-            st.session_state.retriever = vectorstore.as_retriever()
+            st.session_state.retriever = vectorstore.as_retriever(search_kwargs={"k": 5})  # Return top 5 results
             st.success("✅ Website indexed successfully!")
         except Exception as e:
             st.error(f"Error indexing website: {e}")
