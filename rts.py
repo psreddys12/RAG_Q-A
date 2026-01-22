@@ -221,7 +221,7 @@ st.markdown("""
     border: 2px solid #2d2d86;
 }
 </style>
-<div class="main-header">🤖 Generative AI Masters Chat</div>
+<div class="main-header">🤖 RTS AI AgentChat</div>
 <div class="subtitle">Ask anything about RTS</div>
 """, unsafe_allow_html=True)
 
