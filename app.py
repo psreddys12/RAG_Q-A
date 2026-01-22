@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
 
-import pinecone
+from pinecone import Pinecone, list_indexes, create_index
 from langchain_pinecone import PineconeVectorStore
 
 # ------------------------------------------------------------------
@@ -45,12 +45,18 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=GOOGLE_API_KEY
 )
 
-# Pinecone v3+ connection
-pinecone_index = pinecone.Index(
-    PINECONE_INDEX,
-    api_key=PINECONE_API_KEY,
-    environment="us-east-1"  # change if needed
-)
+# Pinecone v3+ connection (correct usage)
+pc = Pinecone(api_key=PINECONE_API_KEY, environment="us-east-1")
+
+# Check if index exists, create if not
+if PINECONE_INDEX not in pc.list_indexes():
+    pc.create_index(
+        name=PINECONE_INDEX,
+        dimension=768,  # Gemini/Google embedding dimension, adjust if needed
+        metric="cosine"
+    )
+
+pinecone_index = pc.Index(PINECONE_INDEX)
 
 vectorstore = PineconeVectorStore(
     index=pinecone_index,
