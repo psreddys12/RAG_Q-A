@@ -26,9 +26,11 @@ GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX = st.secrets["PINECONE_INDEX"]
 
+# Set Streamlit page config at the top level, only once
 st.set_page_config(
-    page_title="Testing AI",
-    layout="wide"
+    page_title="Generative AI Masters Chat",
+    layout="wide",
+    page_icon="🤖"
 )
 
 # ------------------------------------------------------------------
@@ -161,23 +163,6 @@ with st.sidebar:
     if st.button("Clear Chat"):
         st.session_state.chat_history = []
         st.rerun()
-
-            page_title="Generative AI Masters Chat",
-            layout="wide",
-            page_icon="🤖"
-# ------------------------------------------------------------------
-st.markdown("""
-<h1 style="text-align:center;">Testing AI</h1>
-<p style="text-align:center;color:gray;">
-Ask anything about generativemasters
-        st.markdown("""
-        <style>
-        .main-header {
-            text-align: center;
-            font-size: 2.8rem;
-            font-weight: bold;
-            margin-bottom: 0.2em;
-            color: #2d2d86;
             letter-spacing: 1px;
         }
         .subtitle {
