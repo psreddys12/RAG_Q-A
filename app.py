@@ -48,17 +48,7 @@ llm = ChatGoogleGenerativeAI(
 # Pinecone v3+ connection (correct usage)
 pc = Pinecone(api_key=PINECONE_API_KEY, environment="us-east-1")
 
-# Check if index exists, create if not
-if PINECONE_INDEX not in pc.list_indexes():
-    pc.create_index(
-        name=PINECONE_INDEX,
-        dimension=1025,  # Match your existing index dimension
-        metric="cosine",
-        spec=ServerlessSpec(
-            cloud="aws",
-            region="us-east-1"
-        )
-    )
+# Connect to existing Pinecone index only (do not create)
 
 pinecone_index = pc.Index(PINECONE_INDEX)
 
