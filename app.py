@@ -282,16 +282,16 @@ if st.session_state.retriever is not None:
     ])
     
     retriever = st.session_state.retriever
+    current_team = st.session_state.current_team
     
-    # Create dynamic RAG chain that gets current team chat history at invocation time
+    # Get current team's chat history at chain creation time
+    if current_team not in st.session_state.chat_history:
+        st.session_state.chat_history[current_team] = []
+    team_chat_history = st.session_state.chat_history[current_team]
+    
+    # Create dynamic RAG chain
     def get_context(input_dict):
         return format_docs(retriever.invoke(input_dict["input"]))
-    
-    def get_chat_history(input_dict):
-        current_team = st.session_state.current_team
-        if current_team not in st.session_state.chat_history:
-            return []
-        return st.session_state.chat_history[current_team]
     
     def get_input(input_dict):
         return input_dict["input"]
@@ -299,7 +299,7 @@ if st.session_state.retriever is not None:
     rag_chain = (
         {
             "context": RunnableLambda(get_context),
-            "chat_history": RunnableLambda(get_chat_history),
+            "chat_history": lambda x: team_chat_history,
             "input": RunnableLambda(get_input),
         }
         | qa_prompt
