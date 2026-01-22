@@ -8,7 +8,6 @@ from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.documents import Document
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
 import requests
 import xml.etree.ElementTree as ET
 import os
@@ -20,6 +19,14 @@ SITEMAP_URL = "https://resolvetech.com/sitemap.xml"
 VECTORSTORE_PATH = "data/faiss_index"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
+
 st.set_page_config(page_title="Resolve Tech AI", layout="wide")
 st.title("Resolve Tech AI – Website Q&A Bot")
 
@@ -30,35 +37,13 @@ def clean_text(text: str) -> str:
 
 def load_sitemap_urls():
     try:
-        r = requests.get(SITEMAP_URL, timeout=10)
-        if r.status_code != 200:
-            return []
+        r = requests.get(SITEMAP_URL, headers=HEADERS, timeout=15)
+        r.raise_for_status()
         root = ET.fromstring(r.text)
         ns = {"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         return [loc.text for loc in root.findall(".//ns:loc", ns)]
     except Exception:
         return []
-
-def playwright_fetch(urls):
-    docs = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        for url in urls:
-            try:
-                page.goto(url, timeout=20000)
-                html = page.content()
-                soup = BeautifulSoup(html, "html.parser")
-                text = clean_text(soup.get_text())
-                if len(text) > 50:
-                    docs.append(Document(
-                        page_content=text,
-                        metadata={"source": url}
-                    ))
-            except Exception:
-                continue
-        browser.close()
-    return docs
 
 def save_vectorstore(vs):
     os.makedirs(VECTORSTORE_PATH, exist_ok=True)
@@ -81,8 +66,10 @@ def load_vectorstore():
 # ---------------- SESSION ----------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+
 if "retriever" not in st.session_state:
     st.session_state.retriever = load_vectorstore()
+
 if "index" not in st.session_state:
     st.session_state.index = False
 
@@ -106,15 +93,30 @@ if st.session_state.index:
         st.info(f"Sitemap URLs found: {len(urls)}")
 
     if not urls:
-        st.error("❌ Sitemap not available. Cannot index site.")
+        st.error("❌ Sitemap not found. Website blocks crawling.")
         st.stop()
 
-    with st.spinner("🌐 Rendering pages with Playwright…"):
-        docs = playwright_fetch(urls)
-        st.info(f"Documents extracted: {len(docs)}")
+    docs = []
+    with st.spinner("📄 Fetching page content…"):
+        for url in urls:
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=15)
+                if r.status_code != 200:
+                    continue
+                soup = BeautifulSoup(r.text, "html.parser")
+                text = clean_text(soup.get_text())
+                if len(text) > 50:
+                    docs.append(Document(
+                        page_content=text,
+                        metadata={"source": url}
+                    ))
+            except Exception:
+                continue
+
+    st.info(f"Documents loaded: {len(docs)}")
 
     if not docs:
-        st.error("❌ No readable text found even via browser rendering.")
+        st.error("❌ No readable content found.")
         st.stop()
 
     splitter = RecursiveCharacterTextSplitter(
