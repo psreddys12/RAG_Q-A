@@ -101,7 +101,7 @@ def extract_links_from_html(html_content):
             full_url = urljoin(TARGET_URL, href)
             # Only keep links from same domain
             parsed = urlparse(full_url)
-            if 'resolvetech.com' in parsed.netloc:
+            if 'allprotrainings.com' in parsed.netloc:
                 links.add(full_url.rstrip('/'))
     
     return links
