@@ -55,15 +55,23 @@ st.markdown("""
 # --- Initialize Session State ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "indexing_done" not in st.session_state:
-    st.session_state.indexing_done = False
+if "retriever" not in st.session_state:
+    st.session_state.retriever = None
 
 # --- Sidebar Controls ---
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
     st.divider()
     
-    process_btn = st.button("🔄 Index Website", use_container_width=True, key="index_btn")
+    # Only show Index button if not yet indexed
+    if st.session_state.retriever is None:
+        process_btn = st.button("🔄 Index Website", use_container_width=True, key="index_btn")
+    else:
+        process_btn = False
+        st.button("✅ Website Indexed", use_container_width=True, disabled=True, key="indexed_btn")
+        if st.button("🔄 Re-Index Website", use_container_width=True, key="reindex_btn"):
+            st.session_state.retriever = None
+            st.rerun()
     
     if st.button("🗑️ Clear Chat", use_container_width=True, key="clear_btn"):
         st.session_state.chat_history = []
@@ -72,7 +80,7 @@ with st.sidebar:
     st.divider()
     
     # Status indicator
-    if "retriever" in st.session_state:
+    if st.session_state.retriever is not None:
         st.success("✅ Website Indexed", icon="✅")
         st.caption("Ready to answer questions")
     else:
@@ -115,7 +123,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if "retriever" in st.session_state:
+if st.session_state.retriever is not None:
     # --- Chat Messages Display ---
     st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     
