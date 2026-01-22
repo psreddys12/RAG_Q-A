@@ -162,27 +162,90 @@ with st.sidebar:
         st.session_state.chat_history = []
         st.rerun()
 
-# ------------------------------------------------------------------
-# UI HEADER
+            page_title="Generative AI Masters Chat",
+            layout="wide",
+            page_icon="🤖"
 # ------------------------------------------------------------------
 st.markdown("""
 <h1 style="text-align:center;">Testing AI</h1>
 <p style="text-align:center;color:gray;">
 Ask anything about generativemasters
-</p>
-""", unsafe_allow_html=True)
-
-# ------------------------------------------------------------------
-# CHAT DISPLAY
-# ------------------------------------------------------------------
+        st.markdown("""
+        <style>
+        .main-header {
+            text-align: center;
+            font-size: 2.8rem;
+            font-weight: bold;
+            margin-bottom: 0.2em;
+            color: #2d2d86;
+            letter-spacing: 1px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 1.5em;
+        }
+        .chat-bubble {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.2em;
+        }
+        .chat-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            margin-right: 0.8em;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            border: 2px solid #e0e0e0;
+        }
+        .chat-content {
+            background: #f7f8fa;
+            border-radius: 1.1em;
+            padding: 1em 1.3em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            font-size: 1.08rem;
+            color: #222;
+            max-width: 80vw;
+            word-break: break-word;
+        }
+        .chat-bubble.user .chat-avatar {
+            background: linear-gradient(135deg, #2d2d86 60%, #6e7ff3 100%);
+            color: #fff;
+        }
+        .chat-bubble.assistant .chat-avatar {
+            background: #fff;
+            color: #2d2d86;
+            border: 2px solid #2d2d86;
+        }
+        </style>
+        <div class="main-header">🤖 Generative AI Masters Chat</div>
+        <div class="subtitle">Ask anything about Generative AI Masters</div>
+        """, unsafe_allow_html=True)
 for msg in st.session_state.chat_history:
     role = "user" if isinstance(msg, HumanMessage) else "assistant"
     with st.chat_message(role):
         st.markdown(msg.content)
+        # ------------------------------------------------------------------
+        # CHAT DISPLAY (Stylish with Avatars)
+        # ------------------------------------------------------------------
+        user_logo = "<span style='font-size:2rem;'>🧑‍💻</span>"
+        bot_logo = "<span style='font-size:2rem;'>🤖</span>"
 
-# ------------------------------------------------------------------
-# RAG PROMPT
-# ------------------------------------------------------------------
+        for msg in st.session_state.chat_history:
+            role = "user" if isinstance(msg, HumanMessage) else "assistant"
+            logo = user_logo if role == "user" else bot_logo
+            bubble_class = f"chat-bubble {role}"
+            st.markdown(f"""
+            <div class="{bubble_class}">
+                <div class="chat-avatar">{logo}</div>
+                <div class="chat-content">{msg.content}</div>
+            </div>
+            """, unsafe_allow_html=True)
 def format_docs(docs):
     return "\n\n".join(d.page_content for d in docs)
 
@@ -190,7 +253,7 @@ qa_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "You are an expert AI assistant for Generative AI Masters.\n\n"
      "Use the provided context to answer factual and informational questions accurately.\n"
-     "If the user’s message is conversational (such as greetings, thanks, or general chat),\n"
+        prompt = st.chat_input("Type your message and press Enter...")
      "respond politely and professionally without relying on the context.\n\n"
      "If the requested factual information is not available in the provided context,\n"
      "clearly and politely state that you do not currently have that information,\n"
