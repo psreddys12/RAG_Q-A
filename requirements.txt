@@ -1,6 +1,8 @@
-streamlit
 langchain
-langchain-google-genai
 langchain-community
-beautifulsoup4
+langchain-google-genai
+langchain-text-splitters
 faiss-cpu
+beautifulsoup4
+requests
+streamlit
