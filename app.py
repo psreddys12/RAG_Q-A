@@ -27,7 +27,7 @@ PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX = st.secrets["PINECONE_INDEX"]
 
 st.set_page_config(
-    page_title="Resolve Tech AI",
+    page_title="Testing AI",
     layout="wide"
 )
 
@@ -166,9 +166,9 @@ with st.sidebar:
 # UI HEADER
 # ------------------------------------------------------------------
 st.markdown("""
-<h1 style="text-align:center;">Resolve Tech AI</h1>
+<h1 style="text-align:center;">Testing AI</h1>
 <p style="text-align:center;color:gray;">
-Ask anything about Resolve Tech Solutions
+Ask anything about generativemasters
 </p>
 """, unsafe_allow_html=True)
 
@@ -188,7 +188,7 @@ def format_docs(docs):
 
 qa_prompt = ChatPromptTemplate.from_messages([
     ("system",
-     "You are an expert assistant for Resolve Tech Solutions. "
+     "You are an expert assistant for generativemasters. "
      "Answer ONLY using the provided context. "
      "If the answer is not in the context, say you do not know.\n\n{context}"
     ),
@@ -220,7 +220,7 @@ rag_chain = (
 # ------------------------------------------------------------------
 # INPUT
 # ------------------------------------------------------------------
-prompt = st.chat_input("Ask a question about Resolve Tech...")
+prompt = st.chat_input("Ask a question about generativemasters...")
 
 if prompt:
     st.session_state.chat_history.append(HumanMessage(content=prompt))
