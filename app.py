@@ -52,8 +52,9 @@ pc = Pinecone(api_key=PINECONE_API_KEY, environment="us-east-1")
 if PINECONE_INDEX not in pc.list_indexes():
     pc.create_index(
         name=PINECONE_INDEX,
-        dimension=768,  # Gemini/Google embedding dimension, adjust if needed
-        metric="cosine"
+        dimension=1025,  # Match your existing index dimension
+        metric="cosine",
+        cloud="aws"
     )
 
 pinecone_index = pc.Index(PINECONE_INDEX)
