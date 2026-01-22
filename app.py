@@ -188,9 +188,13 @@ def format_docs(docs):
 
 qa_prompt = ChatPromptTemplate.from_messages([
     ("system",
-     "You are an expert assistant for generativemasters. "
-     "Answer ONLY using the provided context. "
-     "If the answer is not in the context, say you do not know.\n\n{context}"
+     "You are an expert AI assistant for Generative AI Masters.\n\n"
+     "Use the provided context to answer factual and informational questions accurately.\n"
+     "If the user’s message is conversational (such as greetings, thanks, or general chat),\n"
+     "respond politely and professionally without relying on the context.\n\n"
+     "If the requested factual information is not available in the provided context,\n"
+     "clearly and politely state that you do not currently have that information,\n"
+     "and avoid making assumptions or providing unverified details.\n\n{context}"
     ),
     MessagesPlaceholder("chat_history"),
     ("human", "{input}")
