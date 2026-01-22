@@ -1,5 +1,4 @@
 import streamlit as st
-import os
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -11,7 +10,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 # --- Configuration & UI ---
 TARGET_URL = "https://resolvetech.com/"
-API_KEY = os.getenv("GOOGLE_API_KEY")  # Get API key from environment variable
+API_KEY = st.secrets["GOOGLE_API_KEY"]  # Get API key from Streamlit secrets
 
 st.set_page_config(page_title="Resolve Tech AI", page_icon="💻", layout="wide")
 st.title("💻 Resolve Tech Smart Assistant")
@@ -37,22 +36,19 @@ with st.sidebar:
 
 # --- RAG Indexing ---
 if process_btn:
-    if not API_KEY:
-        st.error("❌ API Key not found. Set GOOGLE_API_KEY environment variable.")
-    else:
-        with st.spinner("🔄 Processing website..."):
-            try:
-                loader = WebBaseLoader(TARGET_URL)
-                loader.requests_kwargs = {'headers': {'User-Agent': 'Mozilla/5.0'}}
-                docs = loader.load()
-                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                chunks = text_splitter.split_documents(docs)
-                embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
-                vectorstore = FAISS.from_documents(chunks, embeddings)
-                st.session_state.retriever = vectorstore.as_retriever()
-                st.success("✅ Website indexed successfully!")
-            except Exception as e:
-                st.error(f"Error indexing website: {e}")
+    with st.spinner("🔄 Processing website..."):
+        try:
+            loader = WebBaseLoader(TARGET_URL)
+            loader.requests_kwargs = {'headers': {'User-Agent': 'Mozilla/5.0'}}
+            docs = loader.load()
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = text_splitter.split_documents(docs)
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
+            vectorstore = FAISS.from_documents(chunks, embeddings)
+            st.session_state.retriever = vectorstore.as_retriever()
+            st.success("✅ Website indexed successfully!")
+        except Exception as e:
+            st.error(f"Error indexing website: {e}")
 
 # --- The Conversational RAG Chain ---
 if "retriever" in st.session_state:
