@@ -194,10 +194,16 @@ def get_context(x):
     docs = retriever.invoke(x["input"])
     return format_docs(docs)
 
+
+def get_chat_history(x):
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    return st.session_state.chat_history
+
 rag_chain = (
     {
         "context": RunnableLambda(get_context),
-        "chat_history": lambda x: st.session_state.chat_history,
+        "chat_history": get_chat_history,
         "input": lambda x: x["input"],
     }
     | qa_prompt
