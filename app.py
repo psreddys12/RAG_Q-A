@@ -224,60 +224,60 @@ st.markdown("""
 <style>
 .main-header {
     text-align: center;
-    font-size: 2.8rem;
-    font-weight: bold;
-    margin-bottom: 0.2em;
-    color: #2d2d86;
-    letter-spacing: 1px;
-}
-.subtitle {
-    text-align: center;
-    color: #666;
-    font-size: 1.1rem;
-    margin-bottom: 1.5em;
-}
-.chat-bubble {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 1.2em;
-}
-.chat-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    margin-right: 0.8em;
-    background: #f0f0f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    border: 2px solid #e0e0e0;
-}
-.chat-content {
-    background: #f7f8fa;
-    border-radius: 1.1em;
-    padding: 1em 1.3em;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    font-size: 1.08rem;
-    color: #222;
-    max-width: 80vw;
-    word-break: break-word;
-}
-.chat-bubble.user .chat-avatar {
-    background: linear-gradient(135deg, #2d2d86 60%, #6e7ff3 100%);
-    color: #fff;
-}
-.chat-bubble.assistant .chat-avatar {
-    background: #fff;
-    color: #2d2d86;
-    border: 2px solid #2d2d86;
-}
-</style>
-<div class="main-header">🤖 Generative AI Masters Chat</div>
-<div class="subtitle">Ask anything about Generative AI Masters</div>
-""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------
+        st.header("Controls")
+
+        if st.button("Index PDFs (One Time)"):
+            with st.spinner("Extracting and indexing PDFs..."):
+                try:
+                    docs = load_pdfs_from_folder()
+                    st.write(f"Loaded {len(docs)} PDF documents.")
+
+                    splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=1500,
+                        chunk_overlap=300
+                    )
+
+                    chunks = splitter.split_documents(docs)
+                    st.write(f"Split into {len(chunks)} chunks.")
+
+                    PineconeVectorStore.from_documents(
+                        documents=chunks,
+                        embedding=embeddings,
+                        index_name=PINECONE_INDEX
+                    )
+
+                    st.success(f"Indexed {len(chunks)} PDF chunks into Pinecone")
+                except Exception as e:
+                    st.error(f"PDF Indexing failed: {e}")
+
+        if st.button("Index Website (One Time)"):
+            with st.spinner("Crawling and indexing website..."):
+                try:
+                    docs = crawl_website()
+                    st.write(f"Crawled {len(docs)} documents.")
+
+                    splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=1500,
+                        chunk_overlap=300
+                    )
+
+                    chunks = splitter.split_documents(docs)
+                    st.write(f"Split into {len(chunks)} chunks.")
+
+                    PineconeVectorStore.from_documents(
+                        documents=chunks,
+                        embedding=embeddings,
+                        index_name=PINECONE_INDEX
+                    )
+
+                    st.success(f"Indexed {len(chunks)} chunks into Pinecone")
+                except Exception as e:
+                    st.error(f"Indexing failed: {e}")
+
+        if st.button("Clear Chat"):
+            st.session_state.chat_history = []
+            st.rerun()
 # CHAT DISPLAY (Stylish with Avatars, only once)
 # ------------------------------------------------------------------
 user_logo = "<span style='font-size:2rem;'>🧑‍💻</span>"
