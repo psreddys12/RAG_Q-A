@@ -14,8 +14,8 @@ import os
 import shutil
 
 # ---------------- CONFIG ----------------
-TARGET_URL = "https://resolvetech.com"
-SITEMAP_URL = "https://resolvetech.com/sitemap.xml"
+TARGET_URL = "https://allprotrainings.com/home/"
+SITEMAP_URL = "https://allprotrainings.com/sitemap.xml"
 VECTORSTORE_PATH = "data/faiss_index"
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 
