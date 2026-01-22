@@ -218,16 +218,17 @@ if st.session_state.retriever is not None:
     # --- Chat Input (Bottom) ---
     st.markdown('<div class="chat-input">', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([5, 1], gap="small")
-    with col1:
-        prompt = st.text_input(
-            "Message...",
-            placeholder="Ask about Cloud or SAP services...",
-            key="chat_input",
-            label_visibility="collapsed"
-        )
-    with col2:
-        send_btn = st.button("Send", use_container_width=True, type="primary", key="send_btn")
+    with st.form("chat_form", clear_on_submit=True):
+        col1, col2 = st.columns([5, 1], gap="small")
+        with col1:
+            prompt = st.text_input(
+                "Message...",
+                placeholder="Ask about Cloud or SAP services...",
+                key="chat_input",
+                label_visibility="collapsed"
+            )
+        with col2:
+            send_btn = st.form_submit_button("Send", use_container_width=True, type="primary")
     
     st.markdown('</div>', unsafe_allow_html=True)
     
