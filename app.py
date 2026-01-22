@@ -1,3 +1,31 @@
+import glob
+from PyPDF2 import PdfReader
+# ------------------------------------------------------------------
+# PDF HELPERS
+# ------------------------------------------------------------------
+def extract_text_from_pdf(pdf_path):
+    try:
+        reader = PdfReader(pdf_path)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text
+    except Exception as e:
+        return ""
+
+def load_pdfs_from_folder(folder="data/pdfs"):
+    pdf_files = glob.glob(f"{folder}/*.pdf")
+    documents = []
+    for pdf_file in pdf_files:
+        text = extract_text_from_pdf(pdf_file)
+        if len(text) > 200:
+            documents.append(
+                Document(
+                    page_content=text,
+                    metadata={"source": pdf_file}
+                )
+            )
+    return documents
 import streamlit as st
 import requests
 import os
@@ -133,6 +161,30 @@ if "chat_history" not in st.session_state:
 # SIDEBAR
 # ------------------------------------------------------------------
 with st.sidebar:
+
+        if st.button("Index PDFs (One Time)"):
+            with st.spinner("Extracting and indexing PDFs..."):
+                try:
+                    docs = load_pdfs_from_folder()
+                    st.write(f"Loaded {len(docs)} PDF documents.")
+
+                    splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=1500,
+                        chunk_overlap=300
+                    )
+
+                    chunks = splitter.split_documents(docs)
+                    st.write(f"Split into {len(chunks)} chunks.")
+
+                    PineconeVectorStore.from_documents(
+                        documents=chunks,
+                        embedding=embeddings,
+                        index_name=PINECONE_INDEX
+                    )
+
+                    st.success(f"Indexed {len(chunks)} PDF chunks into Pinecone")
+                except Exception as e:
+                    st.error(f"PDF Indexing failed: {e}")
     st.header("Controls")
 
 
