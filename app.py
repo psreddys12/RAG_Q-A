@@ -90,10 +90,13 @@ if "retriever" in st.session_state:
         ("human", "{input}"),
     ])
     
+    # Capture retriever at chain creation time
+    retriever = st.session_state.retriever
+    
     # Build the RAG chain using pipe operator - properly route context from retriever
     rag_chain = (
         {
-            "context": lambda x: format_docs(st.session_state.retriever.invoke(x["input"])),
+            "context": lambda x: format_docs(retriever.invoke(x["input"])),
             "chat_history": lambda x: st.session_state.chat_history,
             "input": lambda x: x["input"],
         }
